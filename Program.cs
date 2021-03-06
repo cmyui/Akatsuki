@@ -86,14 +86,15 @@ namespace Akatsuki {
                 multi_client = lines[2].ToLower() == "true";
             }
 
-            // check if there are already any osu! processes running,
-            // osu! only allows gameplay with multiple clients if the
-            // user has administrative privileges..
-            // TODO: cli override? lol
-            Process[] osu_procs = Process.GetProcessesByName("osu!");
-            if (osu_procs.Length != 0) // osu! is already running.
-                Utils.Exit($"{osu_procs[0].MainWindowTitle} is already running, and does not allow multiple clients.\n" +
-                            "Please close the game client, and try running Akatsuki.exe again.");
+            if (!multi_client) {
+                // check if there are already any osu! processes running,
+                // osu! only allows gameplay with multiple clients if the
+                // user has administrative privileges..
+                Process[] osu_procs = Process.GetProcessesByName("osu!");
+                if (osu_procs.Length != 0) // osu! is already running.
+                    Utils.Exit($"{osu_procs[0].MainWindowTitle} is already running, and does not allow multiple clients.\n" +
+                                "Please close the game client, and try running Akatsuki.exe again.");
+            }
 
             if (osu_file_path == null) {
                 // find osu! file from various common paths
