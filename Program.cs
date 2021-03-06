@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -52,7 +53,6 @@ namespace Akatsuki {
 
             // settings
             string domain, osu_file_path;
-            bool multi_client;
 
             if (!Directory.Exists(SETTINGS_PATH)) { // program's first run
                 removeCertificates();
@@ -64,37 +64,38 @@ namespace Akatsuki {
                 // default settings
                 domain = "akatsuki.pw";
                 osu_file_path = null;
-                multi_client = false;
             } else if (!File.Exists(SETTINGS_FILE)) { // file doesn't exist
                 // default settings
                 domain = "akatsuki.pw";
                 osu_file_path = null;
-                multi_client = false;
             } else { // dir & file exist
                 // read settings file & make sure format is correct
                 string[] lines = File.ReadAllLines(SETTINGS_FILE);
-                if (lines.Count(line => !string.IsNullOrWhiteSpace(line)) != 3) {
-                    // file corrupted? (TODO: better)
+                if (lines.Count(line => !string.IsNullOrWhiteSpace(line)) != 2) {
+                    // settings file is corrupted - reset it.
                     File.Delete(SETTINGS_FILE);
-                    Directory.Delete(SETTINGS_PATH);
-                    Utils.Exit("Settings file corruption detected :(");
+                    using (File.Create(SETTINGS_FILE)) { };
+
+                    // default settings
+                    domain = "akatsuki.pw";
+                    osu_file_path = null;
+                } else {
+                    // use saved settings
+                    domain = lines[0];
+                    osu_file_path = lines[1];
                 }
-
-                // use saved settings
-                domain = lines[0];
-                osu_file_path = lines[1];
-                multi_client = lines[2].ToLower() == "true";
             }
 
-            if (!multi_client) {
-                // check if there are already any osu! processes running,
-                // osu! only allows gameplay with multiple clients if the
-                // user has administrative privileges..
-                Process[] osu_procs = Process.GetProcessesByName("osu!");
-                if (osu_procs.Length != 0) // osu! is already running.
-                    Utils.Exit($"{osu_procs[0].MainWindowTitle} is already running, and does not allow multiple clients.\n" +
-                                "Please close the game client, and try running Akatsuki.exe again.");
-            }
+            // check if there are already any osu! processes running,
+            // osu! only allows gameplay with multiple clients if the
+            // user has administrative privileges..
+            // NOTE: osu has a -multi command line arg, but it doesn't
+            // seem like it can be used alongside -devserver.. annoying
+            Process[] osu_procs = Process.GetProcessesByName("osu!");
+            if (osu_procs.Length != 0) // osu! is already running.
+                Utils.Exit($"{osu_procs[0].MainWindowTitle} is already running, and does not allow multiple clients.\n" +
+                            "Please close the game client, and try running Akatsuki.exe again.");
+            
 
             if (osu_file_path == null) {
                 // find osu! file from various common paths
@@ -116,21 +117,16 @@ namespace Akatsuki {
             if (osu_file_path == null)  // could not find osu! file
                 Utils.Exit("Failed to find osu! directory.\n" +
                            "If you installed osu! normally and don't have a strange installation path, please contact an Akatsuki developer.\n" +
-                           "If you have a non-standard osu! path, this program does not currently a custom support path (probably will add).");
+                           $"Otherwise, you can specify a custom path in the settings file @ {SETTINGS_FILE}.");
 
             // write to settings file
             File.WriteAllLines(SETTINGS_FILE, new string[] {
                 domain,
-                osu_file_path,
-                multi_client ? "true" : "false"
+                osu_file_path
             });
 
-            var cli_args = $"-devserver {domain}";
-            if (multi_client)
-                cli_args += " -multi";
-
             // all checks passed, start the game.
-            Process.Start(osu_file_path, cli_args);
+            Process.Start(osu_file_path, $"-devserver {domain}");
         }
     }
 }
